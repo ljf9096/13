@@ -1,207 +1,521 @@
-更新时间,#genre#
-央视频道,#genre#
-卫视频道,#genre#
-港台频道,#genre#
-电影频道,#genre#
+import urllib.request
+from urllib.parse import urlparse
+import os
+import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import subprocess
+import socket
+import time
+from datetime import datetime
 
-# 各频道速度最快前3个直播源
-# 提取时间: 2025-11-11 13:41:12
 
-凤凰中文,https://cdn6.101.qzz.io/163189/fhzw
-凤凰中文,https://k44991.kylintv.tv/live/pxna_iphone.m3u8
-凤凰中文,https://cdn.iptv8k.top/dl/jrys.php?id=19&time=20240926215313&ip=111.229.253.40
-凤凰资讯,https://cdn6.101.qzz.io/163189/fhzx
-凤凰资讯,http://108.181.20.197/livehttpplay?channel_id=30015
-凤凰资讯,https://vx65267199.18cn.dpdns.org/3.m3u8
-凤凰香港,https://cdn6.101.qzz.io/163189/fhhk
-凤凰香港,http://108.181.20.197/livehttpplay?channel_id=30016
-凤凰香港,http://vallest.uk/livehttpplay?channel_id=30016
-安徽卫视,https://www.yangshipin.cn/tv/home?pid=600002532
-安徽卫视,https://shyd.695847.xyz/cms001/ch00000090990000001037/index.m3u8?IASHttpSessionId=RR4967720251014100028031761&ispcode=12
-安徽卫视,http://113.57.93.165:9900/tsfile/live/0130_1.m3u8?key=txiptv&playlive=1&authid=0
-重庆卫视,https://www.yangshipin.cn/tv/home?pid=600002531
-重庆卫视,http://drive.mxmy.net:8888/udp/239.3.1.122:8160
-重庆卫视,http://171.116.216.113:10010/rtp/226.0.1.178:3102
-翡翠台,http://php.jdshipin.com:8880/PLTV/iptv.php?id=fct3
-翡翠台,http://php.jdshipin.com:8880/TVOD/iptv.php?id=fct3
-翡翠台,http://php.jdshipin.com/TVOD/iptv.php?id=fct3
-海南卫视,https://www.yangshipin.cn/tv/home?pid=600002506
-海南卫视,http://223.167.245.20:8001/rtp/239.45.1.81:5140
-海南卫视,http://171.116.216.113:10010/rtp/226.0.1.143:2071
-深圳卫视,http://38.64.72.148:80/hls/modn/list/4007/playlist.m3u8
-深圳卫视,http://223.167.245.20:8001/rtp/239.45.3.231:5140
-深圳卫视,http://171.116.216.113:10010/rtp/226.0.1.150:3079
-东方卫视,https://txmov2.a.kwimgs.com/bs3/video-hls/5219953535631090825_hlsb.m3u8
-东方卫视,http://223.167.245.20:8001/rtp/239.45.3.146:5140
-东方卫视,http://124.128.73.58:9901/tsfile/live/0107_2.m3u8?key=txiptv&playlive=1&authid=0
-辽宁卫视,https://www.yangshipin.cn/tv/home?pid=600002505
-辽宁卫视,http://drive.mxmy.net:8888/udp/239.3.1.210:8056
-辽宁卫视,http://223.167.245.20:8001/rtp/239.45.1.123:5140
-北京卫视,https://www.yangshipin.cn/tv/home?pid=600002309
-北京卫视,http://171.116.216.113:10010/rtp/226.0.1.185:3108
-北京卫视,http://124.128.73.58:9901/tsfile/live/0122_1.m3u8?key=txiptv
-浙江卫视,https://www.yangshipin.cn/tv/home?pid=600002520
-浙江卫视,http://171.116.216.113:10010/rtp/226.0.1.147:3076
-浙江卫视,http://drive.mxmy.net:8888/udp/239.3.1.137:8036
-东森电影,https://cdn.iptv8k.top/dl/jrys.php?id=230&time=20240926215313&ip=111.229.253.40
-东森电影,https://cdn.iptv8k.top/dl/jrys.php?id=231&time=20240926215313&ip=111.229.253.40
-东森电影,https://cdn.iptv8k.top/dl/jrys.php?id=229&time=20240926215313&ip=111.229.253.40
-凤凰卫视,http://php.jdshipin.com:8880/smt.php?id=phoenixtv_hd
-凤凰卫视,http://122.152.202.33/s/81a8a44f/index.m3u8?id=15
-CCTV1,https://shyd.695847.xyz/cms001/ch00000090990000001520/index.m3u8?IASHttpSessionId=RR4967720251014100028031761&ispcode=12
-CCTV1,http://61.156.228.12:8154/tsfile/live/0001_1.m3u8
-CCTV1,http://223.167.245.20:8001/rtp/239.45.3.145:5140
-明珠台,http://php.jdshipin.com:8880/smt.php?id=pearl_twn
-明珠台,http://r.jdshipin.com/GeWKr?id=mzt720
-CCTV5+,https://api.olelive.com/dis/live/CCTV5PHD/hls.m3u8
-CCTV5+,http://drive.mxmy.net:8888/udp/239.3.1.130:8004
-CCTV5+,http://111.14.181.15:9901/tsfile/live/0016_1.m3u8
-CCTV4,https://api.olelive.com/dis/live/CCTV4HD/hls.m3u8
-CCTV4,https://global.cgtn.cicc.media.caton.cloud/master/cgtn-america.m3u8
-CCTV4,http://drive.mxmy.net:8888/udp/239.3.1.214:4220
-CCTV13,https://api.olelive.com/dis/live/CCTV13HD/hls.m3u8
-CCTV13,https://www.freetv.top/migu/608807423.m3u8?migutoken=2ea304b199bfe39629418c1d50b3c9f34ba06712c9c7922a614411768b18496280cdfdee913572bdb8d1cdd3d5763460f2f0aea6c7a51095aaf66f1eb8f43ce6edbbeac22c35e78ecc39dbdf27
-CCTV13,https://www.freetv.top/migu/608807423.m3u8?migutoken=b0ebf450385413f8d70e72a92ceba03e41170d59df1374472666311b9a1b26c2665ac29d287ef869f8998593325508eed5b09a4020d14bc557a3fe580eea0c0f4c2c13a4581ddb400575b8d3e9
-CCTV7,https://api.olelive.com/dis/live/CCTV7HD/hls.m3u8
-CCTV7,https://www.freetv.top/migu/673168121.m3u8?migutoken=44446ab398991313e6a822efdaec82f3b845a2e8f141c172aa857c477255724bbb28fc01d33f764c51106c446af1c57e8815b58822075b194f4cf55cde28fe55f54330d4586c92e75e8aa50a48
-CCTV7,https://www.freetv.top/migu/673168121.m3u8?migutoken=5efea15b5115b2be0e9c11527601ab541c646da6310420ce788fafd0cbc53baa18194290df19e900a089f43300a784605577054b709659403fb3de1eaa69137ce76e0233b0f007ee744300c50d
-CCTV11,https://api.olelive.com/dis/live/CCTV11HD/hls.m3u8
-CCTV11,https://www.freetv.top/migu/667987558.m3u8?migutoken=dbfc420c420e30228efe23e562fc0ee670a65ddac45cc355845b855f27a4e5ba04a7e18d73eb58be7427a4bed6ef9056659fbcf58979a56ccbe84899cfdf0644fc1215333ca6210639196795f2
-CCTV11,https://www.freetv.top/migu/667987558.m3u8?migutoken=16827d54043eba69d051685229b1d0623c01f398f643b3a7d912c9929d6525025ef57eb61666d45bb70dfc86405aa336ca762f0bda4f0284d98eddae4042805df42661f954a1d40820829ec8c2
-CCTV15,https://api.olelive.com/dis/live/CCTV15HD/hls.m3u8
-CCTV15,http://223.167.245.20:8001/rtp/239.45.1.200:5140
-CCTV15,http://61.156.228.12:8154/tsfile/live/0015_1.m3u8
-CCTV17,https://api.olelive.com/dis/live/CCTV17HD/hls.m3u8
-CCTV17,https://www.freetv.top/migu/673168256.m3u8?migutoken=e7dc493273bb331a8b7e0d3c475924ad4706b90f18fd4775c1c134103274e9ad9d59015289e02877b65420a149fcae4f793ded0177cc600ac79d9a95a234e4a8db198072e6973c4a14c05c9dc6
-CCTV17,https://www.freetv.top/migu/673168256.m3u8?migutoken=04374bdde2e4223798159ce189b302c8599b8bb84f8d8f3cbd0adbfc1b53ae5f4a89e00409ced1e0b5b37757ed87e5ce46cab61a18a42b67837b361003b0783f61b66a24877938993b4f7a2b50
-CCTV5,https://api.olelive.com/dis/live/CCTV5HD/hls.m3u8
-CCTV5,http://drive.mxmy.net:8888/udp/239.3.1.173:8001
-CCTV5,http://61.156.228.12:8154/tsfile/live/0005_1.m3u8
-CCTV9,https://api.olelive.com/dis/live/CCTV9HD/hls.m3u8
-CCTV9,https://www.freetv.top/migu/673168140.m3u8?migutoken=70f89f57af3b961c4266d3657e4e2bed7511bb081c6f118dec56c9cb101146db53ddfdbba9b52724c71e79f51bfe5806d61d41f8429293537387c552fed0c21e259ae489a2a54a8accda0abf71
-CCTV9,http://drive.mxmy.net:8888/udp/239.3.1.62:8112
-CCTV16,https://api.olelive.com/dis/live/CCTV16HD/hls.m3u8
-CCTV16,http://drive.mxmy.net:8888/udp/239.3.1.184:8001
-CCTV16,http://171.116.216.113:10010/rtp/226.0.1.118:2032
-CHC动作电影,http://eastscreen.tv/ooooo.php?id=chcdz
-CHC动作电影,https://shyd.695847.xyz/cms001/ch00000090990000001580/index.m3u8?IASHttpSessionId=RR4967720251014100028031761&ispcode=12
-CHC动作电影,http://113.195.172.192:808/hls/114/index.m3u8
-CCTV10,https://api.olelive.com/dis/live/CCTV10HD/hls.m3u8
-CCTV10,https://www.freetv.top/migu/624878405.m3u8?migutoken=b031282d8102da601efdb58208602ae789e7b6f55c9d261e7847daab04f4426ab3eb370da9611721f213b7b78101e1bbe55b066bfcce6410254cdcadb36bfac54a47b7a7b24cda1b4c19590f8d
-CCTV10,https://www.freetv.top/migu/624878405.m3u8?migutoken=c9f89ca38aecd9efd7438d02f07aae1d622407222b2143b84ac81a0b8046d4edf31dff9b382a346f7ec0e11cfbe4780dc7b671024edc7d941d9f8e52bc23439b00a4cd935c472de660659d90ae
-CCTV12,https://api.olelive.com/dis/live/CCTV12HD/hls.m3u8
-CCTV12,https://www.freetv.top/migu/673168185.m3u8?migutoken=37acadb43b1d7932b0a1e8a4f2d01a06b42a10c31f3ccb417bae200ac3028f30a8110509f2cd6cd130aee4b21c85693aa49817f3381e4d28e140d8db1a20b6fecea22fec17a70ff1341efe6081
-CCTV12,https://www.freetv.top/migu/673168185.m3u8?migutoken=40766e9859972e6ae171d58afa7e850faae4246a22bcbd157d273c1bd3b350c0a628f5bf360a7db1d2783c2aadcb2234c9655b4da63085bdef253dcca0b0c76b5ac80d0f95782b3b7bd4a0e881
-CCTV8,https://api.olelive.com/dis/live/CCTV8HD/hls.m3u8
-CCTV8,https://www.freetv.top/migu/624878356.m3u8?migutoken=d8a453dfbb2075ae76b00e5e997036554e9df26cdc7f3a43983394dbf93aac2f27e93d125400f80cfca54fd539ec7ee0d223bc5c7cb1c5ce56bb197e3d2e6900357f6bc8187a161181e7513424
-CCTV8,https://www.freetv.top/migu/624878356.m3u8?migutoken=a5eae829671ac326f37a16f65535b257f90b8bda77984094ab1ccd94b6ef5e7ff48889c5a21a84f1150dfd3a6e390047ac48c3f964608c11a0dfcdfadb1d36607b4f2f6fccd07ed9bdbd92a98e
-河南卫视,https://www.freetv.top/migu/790187291.m3u8?migutoken=3fa5112cca2c2ce74028510dfbaacbc2dce25969982adc457060f0def4c56e2d5efdeb3d0e4ef181a2255dd07c1e7723b5bee70da78172e50618743c5eac8808279282803f9488156ec4d7dbac
-河南卫视,https://www.freetv.top/migu/790187291.m3u8?migutoken=8cfda6b4bd8593bb9739434fecdd1cd097ab9b9609ed72d6de4ca14196c33fbc5ea88d4dae5a4c8a359213f9affc7ab2cf675a934561839e4060ba75bd56e43da713a62e3ebabc4ced1c770bca
-河南卫视,http://124.128.73.58:9901/tsfile/live/0139_1.m3u8?key=txiptv
-CCTV6,https://api.olelive.com/dis/live/CCTV6HD/hls.m3u8
-CCTV6,http://223.167.245.20:8001/rtp/239.45.1.70:5140
-CCTV6,http://124.128.73.58:9901/tsfile/live/0006_1.m3u8
-CCTV3,https://api.olelive.com/dis/live/CCTV3HD/hls.m3u8
-CCTV3,http://171.116.216.113:10010/rtp/226.0.1.141:2018
-CCTV3,http://124.128.73.58:9901/tsfile/live/0003_1.m3u8
-云南卫视,https://shyd.695847.xyz/cms001/ch00000090990000001223/index.m3u8?IASHttpSessionId=RR4967720251014100028031761&ispcode=12
-云南卫视,http://124.128.73.58:9901/tsfile/live/0119_1.m3u8?key=txiptv&playlive=1&authid=0
-云南卫视,http://112.27.235.94:8000/hls/40/index.m3u8
-广东卫视,http://drive.mxmy.net:8888/udp/239.3.1.142:8048
-广东卫视,http://113.57.93.165:9900/tsfile/live/0125_1.m3u8?key=txiptv&playlive=1&authid=0
-广东卫视,http://113.57.93.165:9900/tsfile/live/0125_1.m3u8
-天津卫视,http://drive.mxmy.net:8888/udp/239.3.1.141:1234
-天津卫视,http://223.167.245.20:8001/rtp/239.45.1.124:5140
-天津卫视,http://171.116.216.113:10010/rtp/226.0.1.153:3083
-CCTV2,http://223.167.245.20:8001/rtp/239.45.3.208:5140
-CCTV2,https://api.olelive.com/dis/live/CCTV2HD/hls.m3u8
-CCTV2,http://drive.mxmy.net:8888/udp/239.3.1.60:8084
-山东卫视,http://drive.mxmy.net:8888/udp/239.3.1.209:8052
-山东卫视,http://223.167.245.20:8001/rtp/239.45.3.238:5140
-山东卫视,http://124.128.73.58:9901/tsfile/live/0107_1.m3u8?key=txiptv&playlive=1&authid=0
-黑龙江卫视,http://223.167.245.20:8001/rtp/239.45.3.232:5140
-黑龙江卫视,http://drive.mxmy.net:8888/udp/239.3.1.133:8016
-黑龙江卫视,http://61.156.228.12:8154/tsfile/live/0143_1.m3u8
-河北卫视,http://drive.mxmy.net:8888/udp/239.3.1.148:8072
-河北卫视,http://223.167.245.20:8001/rtp/239.45.1.44:5140
-河北卫视,http://171.116.216.113:10010/rtp/226.0.1.186:3109
-贵州卫视,http://drive.mxmy.net:8888/udp/239.3.1.149:8076
-贵州卫视,http://223.167.245.20:8001/rtp/239.45.1.80:5140
-贵州卫视,http://112.27.235.94:8000/hls/46/index.m3u8
-广西卫视,https://hlscdn.liangtv.cn/live/0c4ef3a44b934cacb8b47121dfada66c/d7e04258157b480dae53883cc6f8123b.m3u8
-广西卫视,http://223.167.245.20:8001/rtp/239.45.0.5:5140
-广西卫视,http://124.128.73.58:9901/tsfile/live/0113_1.m3u8?key=txiptv&playlive=1&authid=0
-湖北卫视,http://223.167.245.20:8001/rtp/239.45.3.239:5140
-湖北卫视,http://171.116.216.113:10010/rtp/226.0.1.152:3082
-湖北卫视,http://drive.mxmy.net:8888/udp/239.3.1.138:8044
-江苏卫视,http://drive.mxmy.net:8888/udp/239.3.1.135:8028
-江苏卫视,https://www.freetv.top/migu/623899368.m3u8?migutoken=f1cd269b0915b27f2f0df129140c45e31211c441e8ec295cf566305c2c1d9f490e8e306f275eb4c59d97f3f033a2c75d35acaee85d3c81095ef1399e7c55e0351c61f40a24aaa0a52ccffa9041
-江苏卫视,https://www.freetv.top/migu/623899368.m3u8?migutoken=3ec7add32f2108ed670e526f58207033f492fc81ffe6044df4e04bf88bca3cfbe3f1af7bd4fa10e5a6663f276475985da275dfa9a568feed08fbc90f40838156a2167089cb6b35aaaf231e8ae8
-四川卫视,http://223.167.245.20:8001/rtp/239.45.1.83:5140
-四川卫视,http://124.128.73.58:9901/tsfile/live/0123_1.m3u8?key=txiptv
-四川卫视,http://124.128.73.58:9901/tsfile/live/0123_1.m3u8
-山西卫视,http://124.128.73.58:9901/tsfile/live/0118_1.m3u8
-山西卫视,http://124.128.73.58:9901/tsfile/live/0118_1.m3u8?key=txiptv&playlive=1&authid=0
-山西卫视,http://60.16.0.216:5757/hls/39/index.m3u8
-吉林卫视,http://171.116.216.113:10010/rtp/226.0.1.220:2068
-吉林卫视,http://113.57.93.165:9900/tsfile/live/1007_1.m3u8?key=txiptv&playlive=1&authid=0
-吉林卫视,http://61.156.228.12:8154/tsfile/live/0116_1.m3u8
-江西卫视,http://drive.mxmy.net:8888/udp/239.3.1.123:8164
-江西卫视,https://www.freetv.top/migu/783847495.m3u8?migutoken=19c37a09e888f77999095afe8ca20e57a19a0440f688dadb58c1983f9c69d28a775232128771b0ac3aa7705f3da38a91ae7aadab4019cdbf668c75eb1e31c40d081b960b979564dab3c421d3f7
-江西卫视,http://171.116.216.113:10010/rtp/226.0.1.219:2067
-湖南卫视,http://drive.mxmy.net:8888/udp/239.3.1.132:8012
-湖南卫视,http://124.128.73.58:9901/tsfile/live/0128_1.m3u8?key=txiptv&playlive=1&authid=0
-湖南卫视,http://223.167.245.20:8001/rtp/239.45.3.228:5140
-CHC家庭影院,http://61.162.52.6:8088/newlive/live/hls/60/live.m3u8
-CHC家庭影院,http://113.195.172.192:808/hls/113/index.m3u8
-CHC家庭影院,http://202.168.168.50:5000/tsfile/live/1064_1.m3u8
-AMC电影,http://61.221.215.25:8800/hls/43/index.m3u8
-甘肃卫视,http://124.128.73.58:9901/tsfile/live/0141_1.m3u8?key=txiptv&playlive=1&authid=0
-甘肃卫视,http://124.128.73.58:9901/tsfile/live/0141_1.m3u8
-甘肃卫视,http://218.13.170.98:9901/tsfile/live/0141_1.m3u8
-CCTV14,https://api.olelive.com/dis/live/CCTV14HD/hls.m3u8
-CCTV14,http://124.128.73.58:9901/tsfile/live/0014_1.m3u8
-CCTV14,http://124.128.73.58:9901/tsfile/live/0014_1.m3u8?key=txiptv&playlive=1&authid=0
-CCTV怀旧剧场,http://171.116.216.113:10010/rtp/226.0.1.182:2121
-CCTV怀旧剧场,http://58.32.32.87:4022/udp/239.45.0.49:5140
-CCTV怀旧剧场,http://120.76.248.139/live/bfgd/4200000224.m3u8
-西藏卫视,http://124.128.73.58:9901/tsfile/live/0111_1.m3u8?key=txiptv&playlive=1&authid=0
-西藏卫视,http://112.132.10.54:9901/tsfile/live/0111_1.m3u8?key=txiptv&playlive=1&authid=0
-西藏卫视,http://120.76.248.139/live/bfgd/4200000121.m3u8
-宁夏卫视,http://124.128.73.58:9901/tsfile/live/0112_1.m3u8?key=txiptv&playlive=1&authid=0
-宁夏卫视,http://183.11.239.36:808/hls/106/index.m3u8
-宁夏卫视,http://120.76.248.139/live/bfgd/4200000118.m3u8
-厦门卫视,http://124.128.73.58:9901/tsfile/live/0129_1.m3u8?key=txiptv&playlive=1&authid=0
-厦门卫视,http://124.128.73.58:9901/tsfile/live/0129_1.m3u8
-厦门卫视,http://sh.lnott.top:880/dx48.m3u8
-东南卫视,http://124.128.73.58:9901/tsfile/live/0137_1.m3u8?key=txiptv&playlive=1&authid=0
-东南卫视,http://drive.mxmy.net:8888/udp/239.3.1.156:8148
-东南卫视,http://111.14.181.15:9901/tsfile/live/0137_1.m3u8?key=txiptv&playlive=1&authid=0
-澳门莲花,http://live-hls.macaulotustv.com/lotustv/macaulotustv.m3u8
-澳门莲花,http://live-hls.macaulotustv.com/lotustv/macaulotustv.m3u8
-上海卫视,http://124.128.73.58:9901/tsfile/live/0107_2.m3u8?key=txiptv
-上海卫视,http://221.2.148.205:8154/tsfile/live/0107_1.m3u8?key=txiptv&playlive=1&authid=0
-CCTV风云剧场,http://171.116.216.113:10010/rtp/226.0.1.212:2133
-CCTV风云剧场,http://113.106.171.234:8899/rtp/239.21.0.76:3644
-CCTV风云剧场,http://58.32.32.87:4022/udp/239.45.0.50:5140
-陕西卫视,http://124.128.73.58:9901/tsfile/live/0136_1.m3u8?key=txiptv&playlive=1&authid=0
-陕西卫视,http://61.156.228.12:8154/tsfile/live/0136_1.m3u8
-陕西卫视,http://112.27.235.94:8000/hls/43/index.m3u8
-青海卫视,http://124.128.73.58:9901/tsfile/live/0140_1.m3u8
-青海卫视,http://124.128.73.58:9901/tsfile/live/0140_1.m3u8?key=txiptv
-青海卫视,http://124.128.73.58:9901/tsfile/live/0140_1.m3u8?key=txiptv&playlive=1&authid=0
-CCTV风云音乐,http://171.116.216.113:10010/rtp/226.0.1.164:2109
-CCTV风云音乐,http://113.106.171.234:8899/rtp/239.21.0.79:3656
-CCTV风云音乐,http://58.32.32.87:4022/udp/239.45.0.52:5140
-家庭影院,http://ds920.dsmynas.net:5555/rtp/226.0.2.240:9820%24%E5%B1%B1%E8%A5%BFuni2+
-南方卫视,http://111.221.137.155:44330/tsfile/live/1002_1.m3u8?key=txiptv
-香港卫视,https://piccpndali.v.myalicdn.com/audio/xianggangweishi_2.m3u8
-香港卫视,http://cctvtxyh5c.liveplay.myqcloud.com/cstv/xianggangweishi_2/index.m3u8
-香港卫视,http://cctvtxyh5c.liveplay.myqcloud.com/cstv/xianggangweishi_2/index.m3u8
-黑莓电影,https://epg.pw/stream/ffcb6572863f0745a7369fbd9d901f1dfd0ab8fab8bad8bebb4e01c90b303c47.m3u8
-CHC影迷电影,http://gslbmgsplive.miguvideo.com/migu/kailu/chcymdy/51/20250415/index.m3u8?msisdn=20251111200033309cecdee396458f91961406e0d288c8&mdspid=&spid=699004&netType=0&sid=5910022176&pid=2028597139&timestamp=20251111200033&Channel_ID=0116_2600000900-99000-201600010010027&ProgramID=952383261&ParentNodeID=-99&assertID=5910022176&client_ip=106.13.250.90&SecurityKey=20251111200033&promotionId=&mvid=5900006704&mcid=500020&playurlVersion=WX-A1-8.10.1-RELEASE&userid=&jmhm=&videocodec=h264&bean=mgspad&tid=android&conFee=0&puData=07c501a969dcd35e6af4897d7e79e6e9&ddCalcu=90e7e6c1e5290071ea79d6799d8c4df3a56e
-动作电影,http://cdn.jdshipin.com:8880/huya.php?id=11602077
-动作电影,http://cfss.cc/cdn/hy/11602077.m3u8
-经典电影,http://cdn.jdshipin.com:8880/huya.php?id=11342427
+# 读取文本方法
+def read_txt_to_array(file_name):
+    try:
+        with open(file_name, 'r', encoding='utf-8') as file:
+            lines = file.readlines()
+            lines = [line.strip() for line in lines]
+            return lines
+    except FileNotFoundError:
+        print(f"File '{file_name}' not found.")
+        return []
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return []
 
-# 统计信息: 共71个频道，196个直播源
+
+# 准备支持 m3u 格式
+def get_url_file_extension(url):
+    # 解析 URL
+    parsed_url = urlparse(url)
+    # 获取路径部分
+    path = parsed_url.path
+    # 提取文件扩展名
+    extension = os.path.splitext(path)[1]
+    return extension
+
+
+def convert_m3u_to_txt(m3u_content):
+    # 分行处理
+    lines = m3u_content.split('\n')
+    txt_lines = []
+    # 临时变量用于存储频道名称
+    channel_name = ""
+    for line in lines:
+        # 过滤掉 #EXTM3U 开头的行
+        if line.startswith("#EXTM3U"):
+            continue
+        # 处理 #EXTINF 开头的行
+        if line.startswith("#EXTINF"):
+            # 获取频道名称（假设频道名称在引号后）
+            channel_name = line.split(',')[-1].strip()
+        # 处理 URL 行
+        elif line.startswith("http") or line.startswith("rtmp") or line.startswith("p3p"):
+            txt_lines.append(f"{channel_name},{line.strip()}")
+    # 将结果合并成一个字符串，以换行符分隔
+    return '\n'.join(txt_lines)
+
+
+# 处理带 $ 的 URL，把 $ 之后的内容都去掉（包括 $ 也去掉）
+def clean_url(url):
+    last_dollar_index = url.rfind('$')  # 安全起见找最后一个 $ 处理
+    if last_dollar_index != -1:
+        return url[:last_dollar_index]
+    return url
+
+
+# 处理所有 URL
+def process_url(url, timeout=10):
+    try:
+        # 打开 URL 并读取内容
+        start_time = time.time()
+        with urllib.request.urlopen(url, timeout=timeout) as response:
+            # 以二进制方式读取数据
+            data = response.read()
+            # 将二进制数据解码为字符串
+            text = data.decode('utf-8')
+
+            # 处理 m3u 和 m3u8，提取 channel_name 和 channel_address
+            if get_url_file_extension(url) == ".m3u" or get_url_file_extension(url) == ".m3u8":
+                text = convert_m3u_to_txt(text)
+
+            # 逐行处理内容
+            lines = text.split('\n')
+            channel_count = 0  # 初始化频道计数器
+            for line in lines:
+                if "#genre#" not in line and "," in line and "://" in line:
+                    # 拆分成频道名和 URL 部分
+                    parts = line.split(',')
+                    channel_name = parts[0]  # 获取频道名称
+                    channel_address = parts[1]  # 获取频道地址
+                    # 处理带 # 号源 = 予加速源
+                    if "#" not in channel_address:
+                        yield channel_name, clean_url(channel_address)  # 如果没有井号，则照常按照每行规则进行分发
+                    else:
+                        # 如果有 "#" 号，则根据 "#" 号分隔
+                        url_list = channel_address.split('#')
+                        for channel_url in url_list:
+                            yield channel_name, clean_url(channel_url)
+                    channel_count += 1  # 每处理一个频道，计数器加一
+
+            print(f"正在读取URL: {url}")
+            print(f"获取到频道列表: {channel_count} 条")  # 打印频道数量
+
+    except Exception as e:
+        print(f"处理 URL 时发生错误：{e}")
+        return []
+
+
+# 函数用于过滤和替换频道名称
+def filter_and_modify_sources(corrections):
+    filtered_corrections = []
+    name_dict = ['购物', '理财', '导视', '指南', '测试', '芒果', 'CGTN']
+    url_dict = []  # '2409:'留空不过滤ipv6频道
+
+    for name, url in corrections:
+        if any(word.lower() in name.lower() for word in name_dict) or any(word in url for word in url_dict):
+            print("过滤频道:" + name + "," + url)
+        else:
+            # 进行频道名称的替换操作
+            name = name.replace("FHD", "").replace("HD", "").replace("hd", "").replace("频道", "").replace("高清", "") \
+                .replace("超清", "").replace("20M", "").replace("-", "").replace("4k", "").replace("4K", "") \
+                .replace("4kR", "")
+            filtered_corrections.append((name, url))
+    return filtered_corrections
+
+
+def check_url(url, channel_name, timeout=6):
+    start_time = time.time()
+    elapsed_time = None
+    success = False
+
+    try:
+        if url.startswith("http"):
+            response = urllib.request.urlopen(url, timeout=timeout)
+            if response.status == 200:
+                success = True
+        elif url.startswith("p3p"):
+            success = check_p3p_url(url, timeout)
+        elif url.startswith("rtmp"):
+            success = check_rtmp_url(url, timeout)
+        elif url.startswith("rtp"):
+            success = check_rtp_url(url, timeout)
+        else:
+            return None, False
+
+        elapsed_time = (time.time() - start_time) * 1000  # 转换为毫秒
+    except Exception as e:
+        print(f"检测错误 {channel_name}: {url}: {e}")
+
+    return elapsed_time, success
+
+
+# 以下是检测不同协议URL的函数
+def check_rtmp_url(url, timeout):
+    try:
+        result = subprocess.run(['ffprobe', '-v', 'error', '-rtmp_transport', 'tcp', '-i', url],
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, timeout=timeout)
+        return result.returncode == 0
+    except subprocess.TimeoutExpired:
+        print(f"检测超时 {url}")
+    except Exception as e:
+        print(f"检测错误 {url}: {e}")
+    return False
+
+
+def check_rtp_url(url, timeout):
+    try:
+        parsed_url = urlparse(url)
+        host = parsed_url.hostname
+        port = parsed_url.port
+
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.settimeout(timeout)
+            s.connect((host, port))
+            s.sendto(b'', (host, port))
+            s.recv(1)
+        return True
+    except (socket.timeout, socket.error):
+        return False
+
+
+def check_p3p_url(url, timeout):
+    try:
+        parsed_url = urlparse(url)
+        host = parsed_url.hostname
+        port = parsed_url.port
+        path = parsed_url.path
+
+        with socket.create_connection((host, port), timeout=timeout) as s:
+            request = f"GET {path} P3P/1.0\r\nHost: {host}\r\n\r\n"
+            s.sendall(request.encode())
+            response = s.recv(1024)
+            return b"P3P" in response
+    except Exception as e:
+        print(f"检测错误 {url}: {e}")
+    return False
+
+
+# 去掉文本'$'后面的内容
+def process_line(line):
+    if "://" not in line:
+        return None, None
+    line = line.split('$')[0]
+    parts = line.split(',')
+    if len(parts) == 2:
+        name, url = parts
+        elapsed_time, is_valid = check_url(url.strip(), name)
+        if is_valid:
+            return elapsed_time, f"{name},{url}"
+    return None, None
+
+
+def process_urls_multithreaded(lines, max_workers=200):
+    results = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(process_line, line): line for line in lines}
+        for future in as_completed(futures):
+            elapsed_time, result = future.result()
+            if elapsed_time is not None:
+                results.append((elapsed_time, result))
+
+    # 按照检测后的毫秒数升序排列
+    results.sort()
+    return results
+
+
+def extract_fastest_channels():
+    """从iptv_list.txt中提取各频道速度最快的前3个直播源到4.txt，保持原格式和顺序"""
+    
+    # 读取iptv_list.txt文件
+    iptv_list_file = "iptv_list.txt"
+    if not os.path.exists(iptv_list_file):
+        print(f"文件 {iptv_list_file} 不存在")
+        return
+    
+    print(f"正在从 {iptv_list_file} 提取最快频道...")
+    
+    # 读取所有行，保持原格式
+    with open(iptv_list_file, 'r', encoding='utf-8') as f:
+        all_lines = f.readlines()
+    
+    # 分离标题行和频道行
+    header_lines = []
+    channel_lines = []
+    channel_original_order = []  # 记录频道行的原始顺序
+    
+    for line in all_lines:
+        stripped_line = line.strip()
+        if not stripped_line:
+            header_lines.append(line)  # 保留空行
+            continue
+        if stripped_line.startswith("#") or "genre" in stripped_line:
+            header_lines.append(line.rstrip())  # 保持原格式，只去掉末尾换行符
+        elif "," in stripped_line and "://" in stripped_line:
+            channel_lines.append(stripped_line)
+            channel_original_order.append(stripped_line)
+    
+    print(f"找到 {len(header_lines)} 个标题行，{len(channel_lines)} 个频道行")
+    
+    # 重新检测所有频道的速度
+    print("开始重新检测频道速度...")
+    speed_results = process_urls_multithreaded(channel_lines)
+    
+    # 按频道名称分组，每个频道最多保留3个最快源
+    channel_groups = {}
+    for elapsed_time, channel_info in speed_results:
+        channel_name, channel_url = channel_info.split(',', 1)
+        
+        if channel_name not in channel_groups:
+            channel_groups[channel_name] = []
+        
+        # 每个频道最多保留3个最快源
+        if len(channel_groups[channel_name]) < 3:
+            channel_groups[channel_name].append((elapsed_time, channel_info))
+    
+    # 对每个频道的源按速度排序（最快在前）
+    for channel_name in channel_groups:
+        channel_groups[channel_name].sort(key=lambda x: x[0])
+    
+    # 创建快速查找字典
+    fastest_channels_dict = {}
+    for channel_name, channels in channel_groups.items():
+        fastest_channels_dict[channel_name] = [channel_info for _, channel_info in channels]
+    
+    # 写入4.txt文件，保持原格式和顺序
+    output_file = "4.txt"
+    with open(output_file, 'w', encoding='utf-8') as f:
+        # 写入原文件的标题行和空行
+        for header in header_lines:
+            f.write(header + '\n')
+        
+        # 按照原始顺序写入频道行，但只保留每个频道的前3个最快源
+        processed_channels = {}  # 记录每个频道已经写入的数量
+        
+        for channel_line in channel_original_order:
+            channel_name, channel_url = channel_line.split(',', 1)
+            
+            # 如果这个频道在最快源列表中且还没有写满3个
+            if channel_name in fastest_channels_dict:
+                if channel_name not in processed_channels:
+                    processed_channels[channel_name] = 0
+                
+                # 检查这个具体的频道行是否在最快的前3个中
+                current_channels = fastest_channels_dict[channel_name]
+                if processed_channels[channel_name] < len(current_channels):
+                    # 写入这个频道的一个最快源
+                    f.write(current_channels[processed_channels[channel_name]] + '\n')
+                    processed_channels[channel_name] += 1
+    
+    # 统计信息
+    total_channels = len(fastest_channels_dict)
+    total_sources = sum(len(sources) for sources in fastest_channels_dict.values())
+    
+    # 打印统计信息
+    print(f"\n{'='*60}")
+    print(f"各频道速度最快前3个直播源已保存到: {output_file}")
+    print(f"总共处理了 {total_channels} 个频道")
+    print(f"总共生成了 {total_sources} 个直播源")
+    print(f"{'='*60}")
+    
+    # 打印前20个频道的详情
+    print("\n前20个频道最快源详情:")
+    count = 0
+    for channel_name, sources in fastest_channels_dict.items():
+        if count >= 20:
+            break
+        print(f"{channel_name}: {len(sources)}个源")
+        for i, channel_info in enumerate(sources, 1):
+            # 重新获取响应时间用于显示
+            for elapsed_time, info in speed_results:
+                if info == channel_info:
+                    print(f"  源{i}: {elapsed_time:.0f}ms")
+                    break
+        count += 1
+
+
+# 删除目录内所有 .txt 文件
+def clear_txt_files(directory):
+    for filename in os.listdir(directory):
+        if filename.endswith('.txt'):
+            file_path = os.path.join(directory, filename)
+            try:
+                os.remove(file_path)
+            except Exception as e:
+                print(f"删除文件时发生错误: {e}")
+
+
+# 主函数
+def main():
+    # 读取 URLs
+    urls_file_path = os.path.join(os.getcwd(), 'config/urls.txt')
+    urls = read_txt_to_array(urls_file_path)
+
+    # 处理过滤和替换频道名称
+    all_channels = []
+    for url in urls:
+        for channel_name, channel_url in process_url(url):
+            all_channels.append((channel_name, channel_url))
+
+    # 过滤和修改频道名称
+    filtered_channels = filter_and_modify_sources(all_channels)
+
+    # 去重
+    unique_channels = list(set(filtered_channels))
+
+    unique_channels_str = [f"{name},{url}" for name, url in unique_channels]
+
+    # 写入 iptv.txt 文件
+    iptv_file_path = os.path.join(os.getcwd(), 'iptv.txt')
+    with open(iptv_file_path, 'w', encoding='utf-8') as f:
+        for line in unique_channels_str:
+            f.write(line + '\n')
+
+    # 打印出本次写入iptv.txt文件的总频道列表数量
+    with open(iptv_file_path, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+        total_channels = len(lines)
+        print(f"\n所有频道已保存到文件: {iptv_file_path}，共采集到频道数量: {total_channels} 条\n")
+
+    # 使用多线程检测URL
+    results = process_urls_multithreaded(unique_channels_str)
+
+    # 写入文件
+    def write_list(file_path, data_list):
+        with open(file_path, 'w', encoding='utf-8') as file:
+            for item in data_list:
+                elapsed_time, result = item
+                channel_name, channel_url = result.split(',')
+                file.write(f"{channel_name},{channel_url}\n")
+
+    # 写入结果到文件
+    iptv_speed_file_path = os.path.join(os.getcwd(), 'iptv_speed.txt')
+    write_list(iptv_speed_file_path, results)
+
+    # 打印结果
+    for elapsed_time, result in results:
+        channel_name, channel_url = result.split(',')
+        print(f"检测成功  {channel_name},{channel_url}  响应时间 ：{elapsed_time:.0f} 毫秒")
+
+    # 创建地方频道文件夹
+    local_channels_directory = os.path.join(os.getcwd(), '地方频道')
+    if not os.path.exists(local_channels_directory):
+        os.makedirs(local_channels_directory)
+        print(f"目录 '{local_channels_directory}' 已创建。")
+    else:
+        # 清空地方频道文件夹内所有的 .txt 文件
+        clear_txt_files(local_channels_directory)
+
+    # 遍历频道模板目录下的所有文件
+    template_directory = os.path.join(os.getcwd(), '频道模板')
+    if not os.path.exists(template_directory):
+        os.makedirs(template_directory)
+        print(f"目录 '{template_directory}' 已创建。")
+    template_files = [f for f in os.listdir(template_directory) if f.endswith('.txt')]
+
+    # 读取 iptv_speed.txt 文件中的频道列表
+    iptv_speed_channels = read_txt_to_array(iptv_speed_file_path)
+
+    # 对于每个模板文件，进行比对并写入结果
+    for template_file in template_files:
+        template_channels = read_txt_to_array(os.path.join(template_directory, template_file))
+        template_name = os.path.splitext(template_file)[0]
+
+        # 筛选出匹配的频道
+        matched_channels = [channel for channel in iptv_speed_channels if
+                            channel.split(',')[0] in template_channels]
+
+        # 对 CCTV 频道进行排序
+        def channel_key(channel_name):
+            match = re.search(r'\d+', channel_name)
+            if match:
+                return int(match.group())
+            else:
+                return float('inf')  # 返回一个无穷大的数字作为关键字
+
+        matched_channels.sort(key=lambda x: channel_key(x.split(',')[0]))
+        matched_channels.sort(key=lambda x: channel_key(x[0]))
+
+        # 写入对应地区命名的 _iptv.txt 文件中，保存在地方频道文件夹中
+        output_file_path = os.path.join(local_channels_directory, f"{template_name}_iptv.txt")
+        with open(output_file_path, 'w', encoding='utf-8') as f:
+            # 写入标题行
+            f.write(f"{template_name},#genre#\n")
+            for channel in matched_channels:
+                f.write(channel + '\n')
+        print(f"频道列表已写入: {template_name}_iptv.txt")
+
+    # 合并所有 _iptv.txt 文件
+    def merge_iptv_files():
+        merged_content = ""
+        # 获取所有 _iptv.txt 文件的路径
+        iptv_files = [f for f in os.listdir(local_channels_directory) if f.endswith('_iptv.txt')]
+        # 确定央视频道和卫视频道的文件名
+        central_channel_file = "央视频道_iptv.txt"
+        satellite_channel_file = "卫视频道_iptv.txt"
+        hunan_channel_file = "湖南频道_iptv.txt"
+        hk_taiwan_channel_file = "港台频道_iptv.txt"
+        # 创建一个有序的文件列表
+        ordered_files = [central_channel_file, satellite_channel_file, hunan_channel_file, hk_taiwan_channel_file]
+
+        # 按照指定的顺序合并文件内容
+        for file_name in ordered_files:
+            if file_name in iptv_files:
+                file_path = os.path.join(local_channels_directory, file_name)
+                with open(file_path, "r", encoding="utf-8") as file:
+                    merged_content += file.read() + "\n"
+                iptv_files.remove(file_name)
+
+        # 添加剩余的频道
+        for file_name in sorted(iptv_files):
+            file_path = os.path.join(local_channels_directory, file_name)
+            with open(file_path, "r", encoding="utf-8") as file:
+                merged_content += file.read() + "\n"
+        # 获取当前时间
+        now = datetime.now()
+        update_time_line = f"更新时间,#genre#\n{now.strftime('%Y-%m-%d')},url\n{now.strftime('%H:%M:%S')},url\n"
+
+        # 将合并后的内容写入 iptv_list.txt 文件
+        iptv_list_file_path = "iptv_list.txt"
+        with open(iptv_list_file_path, "w", encoding="utf-8") as iptv_list_file:
+            iptv_list_file.write(update_time_line)
+            # 对每个频道名称的频道列表进行分组
+            channels_grouped = {}
+            for line in merged_content.split('\n'):
+                if line:
+                    parts = line.split(',')
+                    channel_name = parts[0]
+                    channel_url = parts[1]
+                    if channel_name not in channels_grouped:
+                        channels_grouped[channel_name] = []
+                    channels_grouped[channel_name].append(line)
+
+            # 只保留每个分组的前20个频道
+            for channel_name in channels_grouped:
+                channels_grouped[channel_name] = channels_grouped[channel_name][:200]
+
+            # 将处理后的频道列表写入文件
+            for channel_name in channels_grouped:
+                for channel_line in channels_grouped[channel_name]:
+                    iptv_list_file.write(channel_line + '\n')
+
+        # 删除临时文件 iptv.txt 和 iptv_speed.txt
+        try:
+            os.remove('iptv.txt')
+            os.remove('iptv_speed.txt')
+            print(f"临时文件 iptv.txt 和 iptv_speed.txt 已删除。")
+        except OSError as e:
+            print(f"删除临时文件时发生错误: {e}")
+
+        print(f"\n所有地区频道列表文件合并完成，文件保存为：{iptv_list_file_path}")
+        
+        # 在生成iptv_list.txt后，提取最快的前3个频道到4.txt
+        extract_fastest_channels()
+    
+    # 调用合并文件的函数
+    merge_iptv_files()
+
+
+if __name__ == "__main__":
+    main()
