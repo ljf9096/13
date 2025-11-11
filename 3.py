@@ -225,8 +225,8 @@ def process_urls_multithreaded(lines, max_workers=200):
     return results
 
 
-def extract_fastest_channels_from_iptv_list():
-    """从iptv_list.txt中提取各频道速度最快的前3个直播源"""
+def extract_fastest_channels():
+    """从iptv_list.txt中提取各频道速度最快的前3个直播源到4.txt"""
     
     # 读取iptv_list.txt文件
     iptv_list_file = "iptv_list.txt"
@@ -234,18 +234,28 @@ def extract_fastest_channels_from_iptv_list():
         print(f"文件 {iptv_list_file} 不存在")
         return
     
-    # 读取所有频道
-    all_channels = read_txt_to_array(iptv_list_file)
+    print(f"正在从 {iptv_list_file} 提取最快频道...")
     
-    # 过滤掉标题行和更新时间行
-    valid_channels = []
-    for line in all_channels:
-        if line and not line.startswith("#") and "," in line and "://" in line:
-            valid_channels.append(line)
+    # 读取所有行，保持原格式
+    with open(iptv_list_file, 'r', encoding='utf-8') as f:
+        all_lines = f.readlines()
     
-    print(f"从iptv_list.txt中读取到 {len(valid_channels)} 个有效频道")
+    # 分离标题行和频道行
+    header_lines = []
+    channel_lines = []
     
-    # 定义目标频道列表
+    for line in all_lines:
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith("#") or "genre" in line:
+            header_lines.append(line)
+        elif "," in line and "://" in line:
+            channel_lines.append(line)
+    
+    print(f"找到 {len(header_lines)} 个标题行，{len(channel_lines)} 个频道行")
+    
+    # 定义目标频道列表（可以根据需要修改）
     target_channels = [
         'CCTV1', 'CCTV2', 'CCTV3', 'CCTV4', 'CCTV5', 'CCTV6', 'CCTV7', 'CCTV8', 
         'CCTV9', 'CCTV10', 'CCTV11', 'CCTV12', 'CCTV13', 'CCTV14', 'CCTV15', 'CCTV16',
@@ -258,7 +268,7 @@ def extract_fastest_channels_from_iptv_list():
     
     # 重新检测所有频道的速度
     print("开始重新检测频道速度...")
-    speed_results = process_urls_multithreaded(valid_channels)
+    speed_results = process_urls_multithreaded(channel_lines)
     
     # 按频道名称分组
     channel_groups = {}
@@ -270,7 +280,7 @@ def extract_fastest_channels_from_iptv_list():
             if target in channel_name:
                 if target not in channel_groups:
                     channel_groups[target] = []
-                channel_groups[target].append((elapsed_time, channel_url))
+                channel_groups[target].append((elapsed_time, channel_info))
                 break
     
     # 对每个频道组取前3个最快的
@@ -281,43 +291,46 @@ def extract_fastest_channels_from_iptv_list():
         # 取前3个
         fastest_channels_by_group[channel_name] = channels[:3]
     
-    # 写入4.txt文件
+    # 写入4.txt文件，保持原格式
     output_file = "4.txt"
     with open(output_file, 'w', encoding='utf-8') as f:
-        # 写入标题
-        f.write("# 各频道速度最快前3个直播源\n")
-        f.write(f"# 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write(f"# 源文件: {iptv_list_file}\n\n")
+        # 写入原文件的标题行
+        for header in header_lines:
+            f.write(header + '\n')
+        
+        f.write("\n# 各频道速度最快前3个直播源\n")
+        f.write(f"# 提取时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
         
         total_count = 0
         
+        # 按频道分组写入，保持原格式
         # 先写CCTV频道
         cctv_channels = [ch for ch in fastest_channels_by_group.keys() if ch.startswith('CCTV')]
         cctv_channels.sort(key=lambda x: int(re.search(r'\d+', x).group()) if re.search(r'\d+', x) else 999)
         
+        # 写入央视频道分组
+        f.write("央视频道,#genre#\n")
         for channel_name in cctv_channels:
             channels = fastest_channels_by_group[channel_name]
-            f.write(f"# {channel_name} 频道 (共{len(channels)}个源)\n")
-            
-            for i, (elapsed_time, channel_url) in enumerate(channels, 1):
-                f.write(f"{channel_name}源{i},{channel_url}\n")
+            for elapsed_time, channel_info in channels:
+                f.write(channel_info + '\n')
                 total_count += 1
-            
-            f.write("\n")
+        f.write("\n")
         
         # 再写其他卫视频道
         other_channels = [ch for ch in fastest_channels_by_group.keys() if not ch.startswith('CCTV')]
         other_channels.sort()
         
+        # 写入卫视频道分组
+        f.write("卫视频道,#genre#\n")
         for channel_name in other_channels:
             channels = fastest_channels_by_group[channel_name]
-            f.write(f"# {channel_name} 频道 (共{len(channels)}个源)\n")
-            
-            for i, (elapsed_time, channel_url) in enumerate(channels, 1):
-                f.write(f"{channel_name}源{i},{channel_url}\n")
+            for elapsed_time, channel_info in channels:
+                f.write(channel_info + '\n')
                 total_count += 1
-            
-            f.write("\n")
+        
+        # 写入统计信息
+        f.write(f"\n# 统计信息: 共{len(fastest_channels_by_group)}个频道，{total_count}个直播源\n")
     
     # 打印统计信息
     print(f"\n{'='*60}")
@@ -333,9 +346,20 @@ def extract_fastest_channels_from_iptv_list():
     
     for channel_name in all_sorted_channels:
         channels = fastest_channels_by_group[channel_name]
-        print(f"\n{channel_name}:")
-        for i, (elapsed_time, channel_url) in enumerate(channels, 1):
+        print(f"{channel_name}: {len(channels)}个源")
+        for i, (elapsed_time, channel_info) in enumerate(channels, 1):
             print(f"  源{i}: {elapsed_time:.0f}ms")
+
+
+# 删除目录内所有 .txt 文件
+def clear_txt_files(directory):
+    for filename in os.listdir(directory):
+        if filename.endswith('.txt'):
+            file_path = os.path.join(directory, filename)
+            try:
+                os.remove(file_path)
+            except Exception as e:
+                print(f"删除文件时发生错误: {e}")
 
 
 # 主函数
@@ -395,6 +419,9 @@ def main():
     if not os.path.exists(local_channels_directory):
         os.makedirs(local_channels_directory)
         print(f"目录 '{local_channels_directory}' 已创建。")
+    else:
+        # 清空地方频道文件夹内所有的 .txt 文件
+        clear_txt_files(local_channels_directory)
 
     # 遍历频道模板目录下的所有文件
     template_directory = os.path.join(os.getcwd(), '频道模板')
@@ -424,6 +451,7 @@ def main():
                 return float('inf')  # 返回一个无穷大的数字作为关键字
 
         matched_channels.sort(key=lambda x: channel_key(x.split(',')[0]))
+        matched_channels.sort(key=lambda x: channel_key(x[0]))
 
         # 写入对应地区命名的 _iptv.txt 文件中，保存在地方频道文件夹中
         output_file_path = os.path.join(local_channels_directory, f"{template_name}_iptv.txt")
@@ -499,7 +527,7 @@ def main():
         print(f"\n所有地区频道列表文件合并完成，文件保存为：{iptv_list_file_path}")
         
         # 在生成iptv_list.txt后，提取最快的前3个频道到4.txt
-        extract_fastest_channels_from_iptv_list()
+        extract_fastest_channels()
     
     # 调用合并文件的函数
     merge_iptv_files()
