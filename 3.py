@@ -226,7 +226,7 @@ def process_urls_multithreaded(lines, max_workers=200):
 
 
 def extract_fastest_channels():
-    """从iptv_list.txt中提取各频道速度最快的前3个直播源到4.txt"""
+    """从iptv_list.txt中提取各频道速度最快的前3个直播源到4.txt，保持原顺序"""
     
     # 读取iptv_list.txt文件
     iptv_list_file = "iptv_list.txt"
@@ -245,53 +245,36 @@ def extract_fastest_channels():
     channel_lines = []
     
     for line in all_lines:
-        line = line.strip()
-        if not line:
+        stripped_line = line.strip()
+        if not stripped_line:
             continue
-        if line.startswith("#") or "genre" in line:
-            header_lines.append(line)
-        elif "," in line and "://" in line:
-            channel_lines.append(line)
+        if stripped_line.startswith("#") or "genre" in stripped_line:
+            header_lines.append(line.rstrip())  # 保持原格式，只去掉末尾换行符
+        elif "," in stripped_line and "://" in stripped_line:
+            channel_lines.append(stripped_line)
     
     print(f"找到 {len(header_lines)} 个标题行，{len(channel_lines)} 个频道行")
-    
-    # 定义目标频道列表（可以根据需要修改）
-    target_channels = [
-        'CCTV1', 'CCTV2', 'CCTV3', 'CCTV4', 'CCTV5', 'CCTV6', 'CCTV7', 'CCTV8', 
-        'CCTV9', 'CCTV10', 'CCTV11', 'CCTV12', 'CCTV13', 'CCTV14', 'CCTV15', 'CCTV16',
-        'CCTV17', '湖南卫视', '浙江卫视', '江苏卫视', '东方卫视', '北京卫视', '天津卫视',
-        '山东卫视', '安徽卫视', '河南卫视', '湖北卫视', '广东卫视', '深圳卫视', '黑龙江卫视',
-        '辽宁卫视', '吉林卫视', '河北卫视', '山西卫视', '陕西卫视', '四川卫视', '重庆卫视',
-        '贵州卫视', '云南卫视', '广西卫视', '福建卫视', '江西卫视', '甘肃卫视', '宁夏卫视',
-        '青海卫视', '新疆卫视', '西藏卫视', '内蒙古卫视', '厦门卫视', '海南卫视'
-    ]
     
     # 重新检测所有频道的速度
     print("开始重新检测频道速度...")
     speed_results = process_urls_multithreaded(channel_lines)
     
-    # 按频道名称分组
+    # 按频道名称分组，并记录每个频道的原始顺序
     channel_groups = {}
+    original_order = []  # 记录频道出现的原始顺序
+    
     for elapsed_time, channel_info in speed_results:
         channel_name, channel_url = channel_info.split(',', 1)
         
-        # 检查是否是目标频道
-        for target in target_channels:
-            if target in channel_name:
-                if target not in channel_groups:
-                    channel_groups[target] = []
-                channel_groups[target].append((elapsed_time, channel_info))
-                break
+        # 只处理每个频道的前3个最快源
+        if channel_name not in channel_groups:
+            channel_groups[channel_name] = []
+            original_order.append(channel_name)
+        
+        if len(channel_groups[channel_name]) < 3:
+            channel_groups[channel_name].append((elapsed_time, channel_info))
     
-    # 对每个频道组取前3个最快的
-    fastest_channels_by_group = {}
-    for channel_name, channels in channel_groups.items():
-        # 按响应时间排序
-        channels.sort(key=lambda x: x[0])
-        # 取前3个
-        fastest_channels_by_group[channel_name] = channels[:3]
-    
-    # 写入4.txt文件，保持原格式
+    # 写入4.txt文件，保持原格式和顺序
     output_file = "4.txt"
     with open(output_file, 'w', encoding='utf-8') as f:
         # 写入原文件的标题行
@@ -303,49 +286,31 @@ def extract_fastest_channels():
         
         total_count = 0
         
-        # 按频道分组写入，保持原格式
-        # 先写CCTV频道
-        cctv_channels = [ch for ch in fastest_channels_by_group.keys() if ch.startswith('CCTV')]
-        cctv_channels.sort(key=lambda x: int(re.search(r'\d+', x).group()) if re.search(r'\d+', x) else 999)
-        
-        # 写入央视频道分组
-        f.write("央视频道,#genre#\n")
-        for channel_name in cctv_channels:
-            channels = fastest_channels_by_group[channel_name]
-            for elapsed_time, channel_info in channels:
-                f.write(channel_info + '\n')
-                total_count += 1
-        f.write("\n")
-        
-        # 再写其他卫视频道
-        other_channels = [ch for ch in fastest_channels_by_group.keys() if not ch.startswith('CCTV')]
-        other_channels.sort()
-        
-        # 写入卫视频道分组
-        f.write("卫视频道,#genre#\n")
-        for channel_name in other_channels:
-            channels = fastest_channels_by_group[channel_name]
-            for elapsed_time, channel_info in channels:
-                f.write(channel_info + '\n')
-                total_count += 1
+        # 按照原始顺序写入频道
+        for channel_name in original_order:
+            if channel_name in channel_groups:
+                channels = channel_groups[channel_name]
+                # 按速度排序（最快在前）
+                channels.sort(key=lambda x: x[0])
+                
+                for elapsed_time, channel_info in channels:
+                    f.write(channel_info + '\n')
+                    total_count += 1
         
         # 写入统计信息
-        f.write(f"\n# 统计信息: 共{len(fastest_channels_by_group)}个频道，{total_count}个直播源\n")
+        f.write(f"\n# 统计信息: 共{len(channel_groups)}个频道，{total_count}个直播源\n")
     
     # 打印统计信息
     print(f"\n{'='*60}")
     print(f"各频道速度最快前3个直播源已保存到: {output_file}")
-    print(f"总共处理了 {len(fastest_channels_by_group)} 个频道")
+    print(f"总共处理了 {len(channel_groups)} 个频道")
     print(f"总共生成了 {total_count} 个直播源")
     print(f"{'='*60}")
     
     # 打印每个频道的详情
     print("\n各频道最快源详情:")
-    all_sorted_channels = sorted(fastest_channels_by_group.keys(), 
-                                key=lambda x: (not x.startswith('CCTV'), x))
-    
-    for channel_name in all_sorted_channels:
-        channels = fastest_channels_by_group[channel_name]
+    for channel_name in list(channel_groups.keys())[:20]:  # 只显示前20个频道详情
+        channels = channel_groups[channel_name]
         print(f"{channel_name}: {len(channels)}个源")
         for i, (elapsed_time, channel_info) in enumerate(channels, 1):
             print(f"  源{i}: {elapsed_time:.0f}ms")
