@@ -1,162 +1,175 @@
-import requests
-import concurrent.futures
+import urllib.request
+import urllib.error
+import threading
 import time
-import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import socket
 
-def test_stream_speed(url, timeout=5):
+def test_channel_speed(channel_name, url, timeout=5):
     """
-    测试单个直播源的连接速度
-    返回连接时间（秒），如果连接失败返回None
+    测试单个频道的播放速度
     """
     try:
         start_time = time.time()
-        response = requests.get(url, timeout=timeout, stream=True, headers={
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        })
         
-        # 只读取一小部分数据来测试连接速度
-        response.iter_content(chunk_size=1024)
-        response.close()
+        # 创建请求对象
+        request = urllib.request.Request(
+            url,
+            method='HEAD',
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+        )
         
-        connect_time = time.time() - start_time
-        return connect_time
-    
-    except:
-        return None
+        # 发送HEAD请求测试响应速度
+        response = urllib.request.urlopen(request, timeout=timeout)
+        
+        if response.status == 200:
+            response_time = (time.time() - start_time) * 1000  # 转换为毫秒
+            return channel_name, url, response_time, "成功"
+        else:
+            return channel_name, url, float('inf'), f"HTTP错误: {response.status}"
+            
+    except socket.timeout:
+        return channel_name, url, float('inf'), "超时"
+    except urllib.error.URLError as e:
+        if isinstance(e.reason, socket.timeout):
+            return channel_name, url, float('inf'), "超时"
+        else:
+            return channel_name, url, float('inf'), f"连接错误: {str(e.reason)}"
+    except Exception as e:
+        return channel_name, url, float('inf'), f"其他错误: {str(e)}"
 
-def parse_ptv_file(filename):
+def read_channel_list(filename):
     """
-    解析ptv_list.txt文件，按频道分组直播源
+    读取直播源文件，解析频道名称和URL
     """
-    channels = {}
-    
+    channels = []
     try:
-        with open(filename, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-    except:
-        with open(filename, 'r', encoding='gbk') as f:
-            lines = f.readlines()
-    
-    current_channel = None
-    
-    for line in lines:
-        line = line.strip()
-        if not line or line.startswith('#'):
-            continue
-            
-        # 检测是否是频道名称行（通常包含频道标识）
-        if any(keyword in line.lower() for keyword in ['cctv', '卫视', 'channel', 'ch:']):
-            current_channel = line
-            channels[current_channel] = []
-        elif current_channel and line.startswith(('http://', 'https://', 'rtmp://', 'rtsp://')):
-            channels[current_channel].append(line)
-    
-    return channels
+        with open(filename, 'r', encoding='utf-8') as file:
+            for line in file:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    # 支持多种分隔符：逗号、制表符、空格
+                    if ',' in line:
+                        parts = line.split(',', 1)
+                    elif '\t' in line:
+                        parts = line.split('\t', 1)
+                    else:
+                        parts = line.split(' ', 1)
+                    
+                    if len(parts) == 2:
+                        channel_name = parts[0].strip()
+                        url = parts[1].strip()
+                        # 验证URL格式
+                        if url.startswith(('http://', 'https://', 'rtmp://', 'rtsp://')):
+                            channels.append((channel_name, url))
+                        else:
+                            print(f"警告: 跳过无效URL的频道 {channel_name}: {url}")
+        
+        return channels
+    except FileNotFoundError:
+        print(f"错误：文件 {filename} 未找到")
+        return []
+    except Exception as e:
+        print(f"读取文件时出错: {str(e)}")
+        return []
 
-def auto_detect_channels(lines):
+def filter_target_channels(channels, target_names):
     """
-    自动检测频道分组
+    过滤出目标频道
     """
-    channels = {}
-    current_channel = "未分类"
-    channels[current_channel] = []
+    if not target_names:
+        return channels
     
-    for line in lines:
-        line = line.strip()
-        if not line or line.startswith('#'):
-            continue
-            
-        # 如果是明显的频道名称行
-        if not line.startswith(('http://', 'https://', 'rtmp://', 'rtsp://')) and len(line) < 100:
-            current_channel = line
-            if current_channel not in channels:
-                channels[current_channel] = []
-        elif line.startswith(('http://', 'https://', 'rtmp://', 'rtsp://')):
-            channels[current_channel].append(line)
-    
-    return channels
+    filtered_channels = []
+    for name, url in channels:
+        for target in target_names:
+            if target.lower() in name.lower():
+                filtered_channels.append((name, url))
+                break
+    return filtered_channels
 
 def main():
     input_file = "ptv_list.txt"
     output_file = "1.txt"
     
+    # 目标频道关键词（可以根据需要修改）
+    target_channels = ["cctv1", "cctv2", "cctv3", "河南卫视", "湖南卫视", "浙江卫视", "江苏卫视"]
+    
     print("正在读取直播源文件...")
+    all_channels = read_channel_list(input_file)
     
-    # 读取文件
-    try:
-        with open(input_file, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-    except:
-        try:
-            with open(input_file, 'r', encoding='gbk') as f:
-                lines = f.readlines()
-        except:
-            print("无法读取文件，请检查文件路径和编码")
-            return
+    if not all_channels:
+        print("未找到有效的频道数据")
+        return
     
-    # 解析频道
-    channels = parse_ptv_file(input_file)
-    if len(channels) == 0 or (len(channels) == 1 and "未分类" in channels):
-        print("检测到文件格式不标准，尝试自动识别频道...")
-        channels = auto_detect_channels(lines)
+    # 过滤出目标频道
+    channels = filter_target_channels(all_channels, target_channels)
     
-    print(f"发现 {len(channels)} 个频道")
+    if not channels:
+        print("未找到目标频道，将测试所有频道")
+        channels = all_channels
+    else:
+        print(f"找到 {len(channels)} 个目标频道")
     
-    # 测试每个频道的直播源速度
-    speed_results = {}
+    print("开始测试播放速度...")
     
-    for channel_name, urls in channels.items():
-        print(f"\n正在测试频道: {channel_name}")
-        print(f"该频道有 {len(urls)} 个直播源")
+    # 使用多线程测试所有频道的速度
+    results = []
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        future_to_channel = {
+            executor.submit(test_channel_speed, name, url): (name, url) 
+            for name, url in channels
+        }
         
-        # 使用多线程测试速度
-        speed_tests = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            future_to_url = {executor.submit(test_stream_speed, url): url for url in urls}
-            
-            for future in concurrent.futures.as_completed(future_to_url):
-                url = future_to_url[future]
-                try:
-                    speed = future.result()
-                    if speed is not None:
-                        speed_tests.append((url, speed))
-                        print(f"  ✓ {url[:50]}... 速度: {speed:.2f}秒")
-                    else:
-                        print(f"  ✗ {url[:50]}... 连接失败")
-                except Exception as e:
-                    print(f"  ✗ {url[:50]}... 错误: {e}")
-        
-        # 按速度排序（从快到慢）
-        speed_tests.sort(key=lambda x: x[1])
-        speed_results[channel_name] = speed_tests
+        completed = 0
+        for future in as_completed(future_to_channel):
+            result = future.result()
+            results.append(result)
+            completed += 1
+            channel_name, url, response_time, status = result
+            if status == "成功":
+                print(f"进度: {completed}/{len(channels)} - {channel_name}: {response_time:.2f}ms")
+            else:
+                print(f"进度: {completed}/{len(channels)} - {channel_name}: {status}")
     
-    # 生成输出文件
-    print(f"\n正在生成结果文件: {output_file}")
+    # 过滤出成功的测试并按响应时间排序（从小到大）
+    successful_results = [r for r in results if r[3] == "成功"]
+    successful_results.sort(key=lambda x: x[2])
     
+    # 写入结果到文件
     with open(output_file, 'w', encoding='utf-8') as f:
-        f.write("# 直播源速度测试结果 - 按频道和速度排序\n")
-        f.write(f"# 生成时间: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write("# 格式: 频道名称,播放地址,连接速度(秒)\n\n")
+        f.write("# 频道播放速度测试结果（响应时间从小到大排序）\n")
+        f.write("# 格式：频道名称,URL,响应时间(ms)\n\n")
         
-        for channel_name, speed_list in speed_results.items():
-            f.write(f"# {channel_name} - 共{len(speed_list)}个有效源\n")
-            
-            for url, speed in speed_list:
-                f.write(f"{channel_name},{url},{speed:.2f}\n")
-            
-            f.write("\n")
+        for channel_name, url, response_time, status in successful_results:
+            f.write(f"{channel_name},{url},{response_time:.2f}ms\n")
+        
+        # 添加失败的信息
+        failed_results = [r for r in results if r[3] != "成功"]
+        if failed_results:
+            f.write(f"\n# 以下 {len(failed_results)} 个频道测试失败:\n")
+            for channel_name, url, response_time, status in failed_results:
+                f.write(f"# {channel_name},{url},{status}\n")
     
-    # 打印统计信息
-    print(f"\n=== 测试完成 ===")
-    print(f"输出文件: {output_file}")
+    print(f"\n测试完成！")
+    print(f"成功测试: {len(successful_results)} 个频道")
+    print(f"测试失败: {len(failed_results)} 个频道")
+    print(f"结果已保存到: {output_file}")
     
-    total_sources = sum(len(urls) for urls in channels.values())
-    valid_sources = sum(len(speed_list) for speed_list in speed_results.values())
+    # 显示结果
+    if successful_results:
+        print(f"\n播放速度由快到慢排序:")
+        print("-" * 60)
+        for i, (channel_name, url, response_time, status) in enumerate(successful_results, 1):
+            print(f"{i:2d}. {channel_name:<15} : {response_time:>6.2f}ms")
     
-    print(f"总频道数: {len(channels)}")
-    print(f"总直播源数: {total_sources}")
-    print(f"有效直播源数: {valid_sources}")
-    print(f"成功率: {valid_sources/total_sources*100:.1f}%" if total_sources > 0 else "0%")
+    if failed_results:
+        print(f"\n测试失败的频道:")
+        print("-" * 60)
+        for channel_name, url, response_time, status in failed_results:
+            print(f"{channel_name}: {status}")
 
 if __name__ == "__main__":
     main()
